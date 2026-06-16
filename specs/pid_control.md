@@ -1,5 +1,5 @@
 # Spec: Control PID — Crazyflie 2.0
-**Versión:** 1.0  
+**Versión:** 1.1  
 **Estado:** Borrador  
 **Autor:** Benny  
 **Última actualización:** Junio 2026
@@ -19,11 +19,26 @@ y PS4). El control de posición XY opera únicamente en modo autónomo.
 ### Parámetros
 | Parámetro | Valor | Notas |
 |-----------|-------|-------|
-| KP_ALT | 3750 | Validado: Pm ≈ 65°, OS ≈ 20% |
-| KI_ALT | 50 | Anti-windup activo |
-| KD_ALT | 5250 | RMSE ≈ 7.1 cm en sim_hover |
-| Frecuencia de loop | 50 Hz | |
-| dt | Medido en tiempo real | `time.perf_counter()`, saturado 5–50 ms |
+| KP_ALT | 3750.0 | Validado: Pm ≈ 65°, OS ≈ 20% |
+| KI_ALT | 50.0 | Anti-windup activo (I_LIMIT_ALT) |
+| KD_ALT | 5250.0 | RMSE ≈ 7.1 cm en sim_hover |
+| I_LIMIT_ALT | 5000.0 | Clamping del integrador en pid.py |
+| LOOP_HZ | 50 | Frecuencia del loop de control |
+
+### Manejo de dt
+
+El sistema usa dos comportamientos de dt según el contexto:
+
+| Contexto | dt | Método |
+|----------|----|--------|
+| `_takeoff`, `_land`, `_open_loop_run` | 0.02 s (fijo) | `1.0 / LOOP_HZ` |
+| `_hover_loop` | Medido en tiempo real | `t0 - t_prev`, saturado 5–50 ms |
+
+El `dt_real` en hover se calcula así:
+```python
+dt_real = t0 - t_prev
+dt_real = max(0.005, min(0.05, dt_real))
+```
 
 ### Comportamiento esperado
 | Métrica | Valor objetivo |
@@ -33,8 +48,14 @@ y PS4). El control de posición XY opera únicamente en modo autónomo.
 | Tiempo de establecimiento | < 3 s |
 
 ### Anti-windup
-- La integral se limita (clamping) para evitar acumulación durante el despegue
-- Se activa desde el inicio del ramp de thrust
+Implementado en `pid.py` mediante clamping del integrador:
+```python
+self._integral += error * dt
+if self.i_limit is not None:
+    self._integral = max(-self.i_limit, min(self.i_limit, self._integral))
+```
+El thrust final se satura entre `THRUST_MIN` y `THRUST_MAX` pero esto
+no retroalimenta al integrador.
 
 ---
 
@@ -49,9 +70,12 @@ y PS4). El control de posición XY opera únicamente en modo autónomo.
 
 ## 4. Trim de Despegue
 
-- Se aplican valores preestablecidos de roll y pitch calculados experimentalmente
-- Objetivo: compensar deriva mecánica durante la fase de elevación inicial
-- Se mantienen activos hasta que el dron es detectado por la cámara
+| Parámetro | Valor | Contexto |
+|-----------|-------|---------|
+| ROLL_TRIM | 0.0 | Despegue |
+| PITCH_TRIM | -1.25 | Despegue |
+| ROLL_TRIM_LAND | -0.5 | Aterrizaje/freno únicamente |
+| PITCH_TRIM_LAND | -0.75 | Aterrizaje/freno únicamente |
 
 ---
 
@@ -69,8 +93,10 @@ Ganancias de altitud validadas mediante simulación MATLAB con tres scripts:
 
 ## 6. Estado de Implementación
 
-| Mejora | Estado |
-|--------|--------|
-| Ganancias optimizadas (KP=3750, KI=50, KD=5250) | ⏳ Pendiente |
-| dt medido en tiempo real | ⏳ Pendiente |
-| Anti-windup durante ramp | ⏳ Pendiente |
+| Componente | Estado |
+|------------|--------|
+| Ganancias PID (KP=3750, KI=50, KD=5250) | ✅ Implementado |
+| Anti-windup con I_LIMIT_ALT=5000 | ✅ Implementado |
+| dt fijo en takeoff/land | ✅ Implementado |
+| dt real medido en hover_loop | ✅ Implementado |
+| Trim de despegue (PITCH_TRIM=-1.25) | ✅ Implementado |
