@@ -21,6 +21,7 @@ Crazyflie 2.0, que es el único sensor disponible para el control de altitud.
 | Variable leída | `baro.asl` (altitud sobre nivel del mar) |
 | Valor típico en Ciudad de México | ~2341 m |
 | Interfaz | LogConfig vía cflib |
+| BARO_GAIN | 0.89 | Corrección de sobre-lectura (efecto Venturi) |
 
 ---
 
