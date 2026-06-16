@@ -43,7 +43,7 @@ app.py
 
 | Componente | Interfaz | Notas |
 |------------|----------|-------|
-| Crazyflie 2.0 | Crazyradio PA (2.4 GHz) | URI: `radio://0/80/2M/E7E7E7E7E7` |
+| Crazyflie 2.0 | Crazyradio PA (2.4 GHz) | URI: `radio://0/80/2M/E7E7E7E701` |
 | Cámara cenital | USB / captura OpenCV | GoPro o equivalente, vista cenital |
 | Control PS4 | USB / pygame | Joystick izquierdo = altitud, derecho = XY |
 | Barómetro | LPS25H (integrado en CF) | Leído vía `baro.asl` con LogConfig |
@@ -89,7 +89,7 @@ Las especificaciones detalladas de cada módulo se encuentran en la carpeta
 | Overshoot en escalón de 1 m | < 25% |
 | Tiempo de establecimiento | < 3 s |
 | Frecuencia del loop de control | 50 Hz |
-| Muestras de calibración barómetro | 50 muestras antes de armar |
+| Muestras de calibración barómetro | 200 muestras (~4 s a 50 Hz) |
 
 ---
 
