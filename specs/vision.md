@@ -44,12 +44,7 @@ posición en modo autónomo.
 | Color objetivo | Rosa | Marcador físico en el dron |
 | Método de detección | Color tracking (rango HSV) | |
 | Referencia de posición | Centro del frame | Setpoint del PID XY |
-| `CAM_ZOOM` | 48 | Zoom digital fijo en `_cfg`, no ajustable desde GUI |
-
-### Nota sobre el zoom
-El zoom digital es un valor estático definido en la configuración (`_cfg`).
-No existe slider de zoom en la GUI actual — `CAM_ZOOM: 48` se aplica
-directamente en `_procesar_frame` sin rango mínimo/máximo expuesto al usuario.
+| `CAM_ZOOM` | 48 | Valor inicial de zoom digital, ajustable desde slider en GUI |
 
 ---
 
@@ -68,7 +63,6 @@ directamente en `_procesar_frame` sin rango mínimo/máximo expuesto al usuario.
 - El dron no es visible en tierra debido a la altura de instalación de la cámara
 - El procesamiento continúa activo aunque el usuario cambie de pestaña en la GUI
 - La detección depende de las condiciones de iluminación del área de vuelo
-- El zoom no es ajustable desde la GUI — requiere modificar `CAM_ZOOM` en `_cfg`
 
 ---
 
@@ -80,4 +74,4 @@ directamente en `_procesar_frame` sin rango mínimo/máximo expuesto al usuario.
 | Color tracking (marcador rosa) | ✅ Implementado |
 | Zoom digital fijo (CAM_ZOOM=48) | ✅ Implementado |
 | Activación automática del PID XY | ✅ Implementado |
-| Slider de zoom ajustable en GUI | ❌ No implementado |
+| Slider de zoom ajustable en GUI | ⏳ Pendiente |
