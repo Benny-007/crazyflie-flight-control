@@ -1,5 +1,5 @@
 # Spec: Barómetro — Crazyflie 2.0
-**Versión:** 1.0  
+**Versión:** 1.1  
 **Estado:** Borrador  
 **Autor:** Benny  
 **Última actualización:** Junio 2026
@@ -26,38 +26,34 @@ Crazyflie 2.0, que es el único sensor disponible para el control de altitud.
 
 ## 3. Filtro EMA
 
-La lectura cruda del barómetro presenta ruido significativo. Se aplica un
-filtro de media móvil exponencial (EMA) antes de alimentar el PID.
-
 | Parámetro | Valor | Justificación |
 |-----------|-------|---------------|
-| Alpha (α) | 0.5 | Validado en sim_filtro_baro.m |
+| `_BARO_ALPHA` | 0.5 | Validado en sim_filtro_baro.m |
 | RMSE sin filtro | 15.44 cm | Medido en simulación |
 | RMSE con filtro | 7.28 cm | Mejora del 53% |
 
-### Fórmula
-```
-baro_filtered = α * baro_raw + (1 - α) * baro_filtered_prev
+Implementado en `_log_cb`:
+```python
+_baro_filt = _BARO_ALPHA * rel + (1.0 - _BARO_ALPHA) * _baro_filt
 ```
 
 ---
 
 ## 4. Calibración Pre-vuelo
 
-Antes de armar los motores, el sistema realiza una calibración obligatoria
-para establecer la referencia de altitud relativa (nivel del suelo = 0 m).
-
 | Parámetro | Valor |
 |-----------|-------|
-| Número de muestras | 50 |
-| Referencia | Promedio de las 50 muestras |
-| Momento | Antes de activar cualquier modo de vuelo |
+| `_BARO_REF_N` | 200 muestras (~4 s a 50 Hz) |
+| Timeout | 5 s en `_drone_run` y `_open_loop_run` |
+| Referencia | Promedio de las 200 muestras → `_baro_ref` |
+| Momento | Automático al iniciar cualquier modo de vuelo |
 
 ### Procedimiento
 1. El dron debe estar estático en la superficie de despegue
-2. El sistema toma 50 lecturas consecutivas del barómetro
-3. Se calcula el promedio como valor de referencia cero
-4. Toda lectura posterior se expresa como diferencia respecto a ese valor
+2. El sistema toma 200 lecturas consecutivas de `baro.asl`
+3. Se calcula el promedio como valor de referencia (`_baro_ref`)
+4. Si no se completan en 5 s, el sistema cancela el vuelo
+5. Toda lectura posterior se expresa como diferencia respecto a `_baro_ref`
 
 ---
 
@@ -73,7 +69,8 @@ para establecer la referencia de altitud relativa (nivel del suelo = 0 m).
 
 ## 6. Estado de Implementación
 
-| Mejora | Estado |
-|--------|--------|
-| Filtro EMA (α=0.5) | ⏳ Pendiente |
-| Calibración de 50 muestras pre-vuelo | ⏳ Pendiente |
+| Componente | Estado |
+|------------|--------|
+| Filtro EMA (α=0.5) | ✅ Implementado |
+| Calibración de 200 muestras pre-vuelo | ✅ Implementado |
+| Timeout de 5 s si calibración falla | ✅ Implementado |
