@@ -1,5 +1,5 @@
 # Spec: Visión Computacional — Crazyflie 2.0
-**Versión:** 1.0  
+**Versión:** 1.1  
 **Estado:** Borrador  
 **Autor:** Benny  
 **Última actualización:** Junio 2026
@@ -28,7 +28,7 @@ posición en modo autónomo.
 ## 3. Pipeline de Procesamiento
 
 1. Captura de frame desde la cámara vía OpenCV
-2. Aplicación de zoom digital (ajustable mediante slider en GUI)
+2. Aplicación de zoom digital fijo (`CAM_ZOOM`) en `_procesar_frame`
 3. Conversión de espacio de color para detección por rango HSV
 4. Detección del marcador rosa por color tracking
 5. Cálculo del centroide del objeto detectado
@@ -44,7 +44,12 @@ posición en modo autónomo.
 | Color objetivo | Rosa | Marcador físico en el dron |
 | Método de detección | Color tracking (rango HSV) | |
 | Referencia de posición | Centro del frame | Setpoint del PID XY |
-| Zoom digital | Ajustable vía slider | Rango definido en GUI |
+| `CAM_ZOOM` | 48 | Zoom digital fijo en `_cfg`, no ajustable desde GUI |
+
+### Nota sobre el zoom
+El zoom digital es un valor estático definido en la configuración (`_cfg`).
+No existe slider de zoom en la GUI actual — `CAM_ZOOM: 48` se aplica
+directamente en `_procesar_frame` sin rango mínimo/máximo expuesto al usuario.
 
 ---
 
@@ -63,6 +68,7 @@ posición en modo autónomo.
 - El dron no es visible en tierra debido a la altura de instalación de la cámara
 - El procesamiento continúa activo aunque el usuario cambie de pestaña en la GUI
 - La detección depende de las condiciones de iluminación del área de vuelo
+- El zoom no es ajustable desde la GUI — requiere modificar `CAM_ZOOM` en `_cfg`
 
 ---
 
@@ -72,5 +78,6 @@ posición en modo autónomo.
 |------------|--------|
 | Captura y procesamiento OpenCV | ✅ Implementado |
 | Color tracking (marcador rosa) | ✅ Implementado |
-| Zoom digital con slider | ✅ Implementado |
+| Zoom digital fijo (CAM_ZOOM=48) | ✅ Implementado |
 | Activación automática del PID XY | ✅ Implementado |
+| Slider de zoom ajustable en GUI | ❌ No implementado |
