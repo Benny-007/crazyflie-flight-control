@@ -20,8 +20,8 @@ Toda la operación se gestiona desde una interfaz gráfica (GUI) desarrollada en
 ### Altitud (Eje Z)
 - Sensor: barómetro LPS25H integrado en el Crazyflie 2.0
 - Control: lazo PID compartido entre modo autónomo y modo PS4
-- Calibración: al iniciar cualquier modo, el sistema toma 50 muestras del barómetro y establece la lectura actual como referencia cero
-
+- Calibración: al iniciar cualquier modo, el sistema toma 200 muestras del barómetro (~4 s a 50 Hz) y establece el promedio como referencia cero
+  
 ### Posición (Ejes X, Y)
 - Sensor: cámara deportiva cenital (tipo GoPro) instalada en el techo
 - Control: lazo PID de posición activo únicamente en modo autónomo
@@ -60,7 +60,7 @@ Desarrollada en Python 3 con las siguientes librerías:
 
 - **Hardware:** dongle USB Crazyradio PA (2.4 GHz)
 - **Librería:** `cflib` (Bitcraze oficial)
-- **URI de conexión:** `radio://0/80/2M/E7E7E7E7E7`
+- **URI de conexión:** `radio://0/80/2M/E7E7E7E701`
 - **Telemetría:** arquitectura `LogConfig` para monitorear potencia de motores y barómetro en tiempo real
 
 ---
