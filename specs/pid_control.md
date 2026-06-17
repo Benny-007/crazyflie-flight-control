@@ -23,7 +23,7 @@ y PS4). El control de posición XY opera únicamente en modo autónomo.
 | KI_ALT | 50.0 | Anti-windup activo (I_LIMIT_ALT) |
 | KD_ALT | 5250.0 | RMSE ≈ 7.1 cm en sim_hover |
 | I_LIMIT_ALT | 5000.0 | Clamping del integrador en pid.py |
-| HOVER_THRUST | 50000 | Thrust base de hover |
+| HOVER_THRUST | 55000 | Thrust base de hover |
 | THRUST_MIN | 20000 | Límite inferior de thrust |
 | THRUST_MAX | 60000 | Límite superior de thrust |
 | TARGET_ALTITUDE | 0.5 m | Altitud objetivo en modo autónomo |
