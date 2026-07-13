@@ -1,5 +1,5 @@
-# SPEC.md — Sistema de Vuelo Crazyflie 2.0
-**Versión:** 1.0  
+# SPEC.md — Sistema de Vuelo Crazyflie 2.1 Brushless
+**Versión:** 1.1  
 **Estado:** Borrador  
 **Autor:** Benny  
 **Última actualización:** Junio 2026
@@ -9,9 +9,9 @@
 ## 1. Propósito
 
 Especificación general del sistema de vuelo autónomo y teleoperado para el
-nano-cuadricóptero Crazyflie 2.0. Este documento define la arquitectura,
-módulos, interfaces y restricciones del proyecto. Toda implementación en
-`app.py` debe ser consistente con lo descrito aquí.
+nano-cuadricóptero Crazyflie 2.1 Brushless. Este documento define la
+arquitectura, módulos, interfaces y restricciones del proyecto. Toda
+implementación en `app.py` debe ser consistente con lo descrito aquí.
 
 ---
 
@@ -35,25 +35,23 @@ app.py
 ├── gui                # Ventana principal, gráficas y pestaña de cámara
 ├── telemetry          # LogConfig: barómetro y potencia de motores
 ├── csv_logger         # Auto-guardado y exportación manual de datos
-└── safety             # Paro de emergencia
+└── safety             # Armado, paro de emergencia y aterrizaje controlado
 ```
+
 ---
 
 ## 4. Interfaces de Hardware
 
 | Componente | Interfaz | Notas |
 |------------|----------|-------|
-| Crazyflie 2.0 | Crazyradio PA (2.4 GHz) | URI: `radio://0/80/2M/E7E7E7E701` |
+| Crazyflie 2.1 Brushless | Crazyradio PA (2.4 GHz) | URI: `radio://0/80/2M/E7E7E7E7E7` |
 | Cámara cenital | USB / captura OpenCV | GoPro o equivalente, vista cenital |
-| Control PS4 | USB / pygame | Joystick izquierdo = altitud, derecho = XY |
-| Barómetro | LPS25H (integrado en CF) | Leído vía `baro.asl` con LogConfig |
+| Control PS4 | USB / pygame | △ arma/desarma, ○ emergencia, sticks XYZ |
+| Barómetro | LPS22HH (integrado en CF 2.1) | Leído vía `baro.asl` con LogConfig |
 
 ---
 
 ## 5. Especificaciones por Módulo
-
-Las especificaciones detalladas de cada módulo se encuentran en la carpeta
-`specs/`:
 
 | Archivo | Módulo |
 |---------|--------|
@@ -63,21 +61,21 @@ Las especificaciones detalladas de cada módulo se encuentran en la carpeta
 | `specs/ps4_input.md` | Mapeo de botones y joysticks |
 | `specs/gui.md` | Interfaz gráfica y telemetría |
 | `specs/csv_logger.md` | Sistema de registro de datos |
-| `specs/safety.md` | Protocolo de paro de emergencia |
+| `specs/safety.md` | Armado, paro de emergencia y aterrizaje controlado |
 
 ---
 
 ## 6. Restricciones del Sistema
 
-- El Crazyflie 2.0 **no cuenta con Flow Deck ni Z-ranger** — el control de
-  altitud depende exclusivamente del barómetro LPS25H.
+- El Crazyflie 2.1 Brushless **no gira motores hasta recibir armado explícito**
+  via `supervisor.send_arming_request(True)`
+- El firmware puede desarmarse automáticamente por volteo o timeout
 - El barómetro reporta altitud sobre el nivel del mar (~2341 m en Ciudad de
-  México) — se requiere calibración relativa obligatoria antes de cada vuelo.
-- El sistema de visión no detecta al dron en tierra debido a la altura de la
-  cámara — el control de posición XY se activa únicamente cuando el dron es
-  detectado en cuadro.
-- No se utiliza `stateEstimate.z` — requiere sensores adicionales no
-  disponibles en este hardware.
+  México) — se requiere calibración relativa de 200 muestras antes de cada vuelo
+- El sistema de visión no detecta al dron en tierra — el control de posición
+  XY se activa únicamente cuando el dron es detectado en cuadro
+- No se utiliza `stateEstimate.z` — requiere sensores adicionales no disponibles
+- ⚠️ No usar emojis de color en la GUI — provocan crash de Tkinter en este equipo
 
 ---
 
@@ -93,7 +91,23 @@ Las especificaciones detalladas de cada módulo se encuentran en la carpeta
 
 ---
 
-## 8. Datos y Registro
+## 8. Parámetros Clave del Sistema
+
+| Parámetro | Valor |
+|-----------|-------|
+| URI | `radio://0/80/2M/E7E7E7E7E7` |
+| LOOP_HZ | 50 |
+| HOVER_THRUST | 55000 |
+| THRUST_MIN | 20000 |
+| THRUST_MAX | 60000 |
+| BARO_GAIN | 0.89 |
+| KP_ALT | 3750.0 |
+| KI_ALT | 50.0 |
+| KD_ALT | 5250.0 |
+
+---
+
+## 9. Datos y Registro
 
 - Telemetría registrada en CSV automáticamente al iniciar vuelo
 - Exportación manual disponible desde la GUI (botón en topbar)
@@ -102,8 +116,20 @@ Las especificaciones detalladas de cada módulo se encuentran en la carpeta
 
 ---
 
-## 9. Seguridad
+## 10. Diagnóstico de Conexión
 
-- Paro de emergencia disponible en todo momento desde la GUI
-- Al activarse: potencia de los 4 motores → 0% de forma inmediata
+- Verificar dongle: `lsusb | grep 1915` debe mostrar `1915:7777`
+- Si aparece `35f0:bad2` → reflashear el dongle
+- Si aparece `radio://0/0/1M` en el escaneo → ignorarlo, es un fantasma;
+  el dron real opera en `radio://0/80/2M`
+- Batería del dron por USB: M3 azul parpadeando = cargando;
+  M2 y M3 fijos = cargada completamente
+
+---
+
+## 11. Seguridad
+
+- Paro de emergencia: botón rojo en GUI, ○ en PS4, o tecla espacio
+- Al activarse: `send_stop_setpoint()` + `send_arming_request(False)`
 - El protocolo es estrictamente manual — depende del criterio del operador
+- Batería por debajo de 3.50 V → aterrizar inmediatamente
