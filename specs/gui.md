@@ -1,5 +1,5 @@
-# Spec: Interfaz Gráfica (GUI) — Crazyflie 2.0
-**Versión:** 1.1  
+# Spec: Interfaz Gráfica (GUI) — Crazyflie 2.1 Brushless
+**Versión:** 1.2  
 **Estado:** Borrador  
 **Autor:** Benny  
 **Última actualización:** Junio 2026
@@ -28,10 +28,11 @@ de vuelo mediante una interfaz gráfica de escritorio desarrollada en Python 3.
 
 ### Pestaña Principal
 - Botones de selección de modo: **Modo Autónomo** / **Modo PS4**
-- Gráfica en tiempo real: altitud real (barómetro) vs setpoint deseado
-- Gráfica en tiempo real: potencia individual de los 4 motores
-- Botón de **Paro de Emergencia**
+- Botón de **Paro de Emergencia** (rojo, visible en todo momento)
 - Botón de **Salir** — cierra la aplicación de forma segura
+- Panel de estado del sistema (ver §4)
+- Gráficas en tiempo real (ver §5)
+- Log de eventos con hora (ver §6)
 
 ### Pestaña Cámara
 - Botón de conexión/desconexión del flujo de video
@@ -40,7 +41,57 @@ de vuelo mediante una interfaz gráfica de escritorio desarrollada en Python 3.
 
 ---
 
-## 4. Topbar
+## 4. Panel de Estado
+
+El panel muestra el estado del sistema en tiempo real mediante chips visuales
+y lecturas numéricas.
+
+### Chips de Estado
+| Chip | Color | Significado |
+|------|-------|-------------|
+| Conexión | Verde | Crazyflie conectado |
+| Conexión | Gris | Sin conexión |
+| ARMADO | Naranja | Motores armados |
+| Modo | — | MANUAL / ALTITUD |
+| PRECISION | — | Control de posición activo |
+
+### Lecturas en Tiempo Real
+| Elemento | Descripción |
+|----------|-------------|
+| Batería | Barra con % y voltaje. Rojo bajo 3.50 V → aterrizar |
+| Link | Calidad del enlace de radio en % |
+| Cronómetro | Tiempo de vuelo acumulado |
+| Roll / Pitch / Yaw | Actitud real del dron |
+| Altitud | Altitud actual y objetivo (en modo altitud) |
+| Estado supervisor | "listo para armar", "volando", "VOLCADO", "BLOQUEADO" |
+
+---
+
+## 5. Gráficas en Tiempo Real
+
+Muestran los últimos 60 segundos de datos:
+
+| Gráfica | Variables | Propósito |
+|---------|-----------|-----------|
+| Altitud | `baro_filtered` vs `alt_setpoint` | Monitorear PID de altitud |
+| Batería | Voltaje de batería | Detectar batería baja |
+| Thrust | Thrust enviado | Diagnosticar comportamiento del vuelo |
+
+- Renderizadas con `FigureCanvasTkAgg` y `FuncAnimation`
+- Actualizadas en tiempo real durante el vuelo
+
+---
+
+## 6. Log de Eventos
+
+- Muestra todos los eventos del sistema con hora
+- Ejemplos: conexión, armado, desarmado, paro de emergencia, batería baja,
+  desarmado automático por firmware
+- Persiste aunque el usuario cambie de pestaña
+
+---
+
+## 7. Topbar
 
 | Elemento | Función |
 |----------|---------|
@@ -48,19 +99,7 @@ de vuelo mediante una interfaz gráfica de escritorio desarrollada en Python 3.
 
 ---
 
-## 5. Gráficas en Tiempo Real
-
-| Gráfica | Variables | Propósito |
-|---------|-----------|-----------|
-| Altitud | `baro_filtered` vs `alt_setpoint` | Monitorear desempeño del PID de altitud |
-| Motores | Potencia M1, M2, M3, M4 | Diagnosticar anomalías en el vuelo |
-
-- Renderizadas con `FigureCanvasTkAgg` y `FuncAnimation`
-- Actualizadas en tiempo real durante el vuelo
-
----
-
-## 6. LogConfig
+## 8. LogConfig
 
 La telemetría se divide en dos LogConfig para respetar el límite de 26 bytes
 del protocolo CRTP:
@@ -75,7 +114,7 @@ de inclinación (tilt compensation) en el hover loop.
 
 ---
 
-## 7. Botón Salir
+## 9. Botón Salir
 
 - Disponible en la pestaña principal en todo momento
 - Al presionarlo: detiene todos los hilos activos, cierra el CSV logger,
@@ -85,7 +124,11 @@ de inclinación (tilt compensation) en el hover loop.
 
 ---
 
-## 8. Restricciones
+## 10. Restricciones
+
+⚠️ **Bug conocido de Tkinter en este equipo:** no usar emojis de color
+(⏱ 💾 ✔ ✖ ‼ ⚠) en textos de la interfaz — provocan crash de la librería.
+Los símbolos △ ○ □ sí son seguros.
 
 - El procesamiento de video continúa activo aunque el usuario cambie de pestaña
 - La GUI corre en el hilo principal — el loop de control corre en hilo separado
@@ -94,15 +137,19 @@ de inclinación (tilt compensation) en el hover loop.
 
 ---
 
-## 9. Estado de Implementación
+## 11. Estado de Implementación
 
 | Componente | Estado |
 |------------|--------|
 | Ventana principal con pestañas | ✅ Implementado |
-| Gráficas en tiempo real | ✅ Implementado |
+| Panel de estado con chips | ⏳ Pendiente |
+| Gráficas en tiempo real (altitud, batería, thrust) | ⏳ Pendiente |
+| Log de eventos con hora | ⏳ Pendiente |
 | Pestaña de cámara | ✅ Implementado |
 | Slider de zoom digital | ⏳ Pendiente |
 | Botón de paro de emergencia | ✅ Implementado |
 | Export CSV desde topbar | ✅ Implementado |
 | LogConfig dividido (lc + lc_mot) | ✅ Implementado |
 | Botón Salir | ⏳ Pendiente |
+| Cronómetro de vuelo | ⏳ Pendiente |
+| Indicador de batería con alerta | ⏳ Pendiente |
