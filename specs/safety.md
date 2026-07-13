@@ -1,5 +1,5 @@
-# Spec: Seguridad y Paro de Emergencia — Crazyflie 2.0
-**Versión:** 1.1  
+# Spec: Seguridad y Paro de Emergencia — Crazyflie 2.1 Brushless
+**Versión:** 1.2  
 **Estado:** Borrador  
 **Autor:** Benny  
 **Última actualización:** Junio 2026
@@ -9,11 +9,50 @@
 ## 1. Propósito
 
 Definir los protocolos de seguridad del sistema para proteger al operador
-y a la aeronave durante el vuelo.
+y a la aeronave durante el vuelo con el Crazyflie 2.1 Brushless.
 
 ---
 
-## 2. Aterrizaje Controlado (Protocolo Normal)
+## 2. Armado y Desarmado
+
+El firmware brushless no gira motores hasta recibir una petición de armado
+explícita — es una medida de seguridad del hardware.
+
+| Acción | Comando | Efecto |
+|--------|---------|--------|
+| Armar | `supervisor.send_arming_request(True)` | Habilita motores, chip naranja "ARMADO" en GUI |
+| Desarmar | `supervisor.send_arming_request(False)` | Corta motores de forma controlada |
+
+### Desarmado automático del firmware
+El firmware puede desarmarse solo en estos casos:
+- El dron se voltea (detección de actitud)
+- Timeout de inactividad
+- La app lo detecta y notifica en el log de la GUI
+
+---
+
+## 3. Paro de Emergencia
+
+### Activación
+- Botón ○ del mando PS4
+- Botón rojo dedicado en la GUI
+- Tecla espacio en el teclado
+
+### Efecto
+- Envía `send_stop_setpoint()` — corta motores al instante
+- Ejecuta `supervisor.send_arming_request(False)` — desarma el firmware
+- El dron cae de forma inmediata
+- El loop de control se detiene
+- El CSV logger cierra y guarda el archivo correctamente
+
+### Prioridad
+- Tiene prioridad absoluta sobre cualquier otra instrucción del sistema
+- Es la **única excepción** al protocolo de aterrizaje controlado
+- Ninguna entrada del mando ni del modo autónomo puede bloquearlo
+
+---
+
+## 4. Aterrizaje Controlado (Protocolo Normal)
 
 El aterrizaje estándar usa una rampa de descenso suave con polinomio quíntico.
 **Nunca se cortan los motores de forma seca salvo en paro de emergencia.**
@@ -23,7 +62,7 @@ El aterrizaje estándar usa una rampa de descenso suave con polinomio quíntico.
 2. Fase de freno: enviar `BRAKE_THRUST` con trims de aterrizaje durante
    `BRAKE_DURATION` segundos
 3. Corte final cuando `baro_alt <= LAND_THRESHOLD`
-4. Enviar `send_setpoint(0,0,0,0)` ~10 veces para detener motores
+4. Desarmar con `supervisor.send_arming_request(False)`
 
 ### Parámetros
 | Parámetro | Valor |
@@ -38,51 +77,40 @@ El aterrizaje estándar usa una rampa de descenso suave con polinomio quíntico.
 
 ---
 
-## 3. Paro de Emergencia
+## 5. Comportamiento ante Desconexión del Mando
 
-### Activación
-- Botón dedicado visible en todo momento en la GUI
-- Disponible en ambos modos de operación (autónomo y PS4)
-- No requiere confirmación — acción inmediata al presionar
-
-### Efecto
-- Corte instantáneo de potencia de los 4 motores al 0%
-- El dron cae de forma inmediata
-- El loop de control se detiene
-- El CSV logger cierra y guarda el archivo correctamente
-
-### Prioridad
-- Tiene prioridad absoluta sobre cualquier otra instrucción del sistema
-- Es la **única excepción** al protocolo de aterrizaje controlado
-- Ninguna entrada del mando PS4 ni del modo autónomo puede bloquearlo
+| Modo | Comportamiento |
+|------|---------------|
+| Modo altitud | La app mantiene la última altitud de referencia |
+| Modo manual | La app corta el empuje |
 
 ---
 
-## 4. Restricciones
+## 6. Restricciones
 
-- El paro de emergencia es estrictamente **manual** — depende al 100% del
-  criterio del operador
-- No existe detección automática de fallos por software
-- El aterrizaje controlado no puede interrumpirse con el botón X del PS4
-  una vez iniciado — solo el paro de emergencia puede detenerlo
+- El paro de emergencia es la única forma de detener el dron de forma inmediata
+- El aterrizaje controlado no puede interrumpirse una vez iniciado, salvo
+  con el paro de emergencia
+- El firmware puede desarmarse solo — la app debe manejar este evento
 
 ---
 
-## 5. Recomendaciones de Operación
+## 7. Recomendaciones de Operación
 
-- El operador debe mantener visibilidad directa del dron en todo momento
-- El operador debe tener acceso inmediato al botón de paro de emergencia
+- Mantener visibilidad directa del dron en todo momento
+- Tener acceso inmediato al botón de paro de emergencia durante el vuelo
 - Verificar conexión del Crazyradio PA antes de cada vuelo
-- Nunca iniciar vuelo sin completar la calibración del barómetro
+- No armar motores sin completar la calibración del barómetro
+- Batería por debajo de 3.50 V → aterrizar inmediatamente
 
 ---
 
-## 6. Estado de Implementación
+## 8. Estado de Implementación
 
 | Componente | Estado |
 |------------|--------|
-| Botón de paro de emergencia en GUI | ✅ Implementado |
-| Corte inmediato de motores al 0% | ✅ Implementado |
-| Cierre correcto del CSV al activarse | ✅ Implementado |
+| Paro de emergencia (send_stop_setpoint) | ⏳ Pendiente |
+| Armado/desarmado (send_arming_request) | ⏳ Pendiente |
+| Detección de desarmado automático del firmware | ⏳ Pendiente |
 | Aterrizaje controlado con rampa quíntica | ✅ Implementado |
-| Fase de freno antes del corte final | ✅ Implementado |
+| Cierre correcto del CSV al activarse | ✅ Implementado |
