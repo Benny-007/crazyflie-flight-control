@@ -1,5 +1,5 @@
-# Spec: Input PS4 — Crazyflie 2.0
-**Versión:** 1.1  
+# Spec: Input PS4 — Crazyflie 2.1 Brushless
+**Versión:** 1.2  
 **Estado:** Borrador  
 **Autor:** Benny  
 **Última actualización:** Junio 2026
@@ -9,7 +9,7 @@
 ## 1. Propósito
 
 Gestionar la lectura del mando PS4 y traducir sus entradas en comandos
-de vuelo para el modo teleoperado del Crazyflie 2.0.
+de vuelo para el modo teleoperado del Crazyflie 2.1 Brushless.
 
 ---
 
@@ -33,7 +33,6 @@ de vuelo para el modo teleoperado del Crazyflie 2.0.
 | axis 4 | Stick DER — eje Y | Frontal (`vx_ref`) |
 | axis 2 | Gatillo L2 | ⚠️ NO usar — reposo = −1 |
 | axis 5 | Gatillo R2 | ⚠️ NO usar — reposo = −1 |
-| button 0 | Botón X | Armar / aterrizar |
 
 ---
 
@@ -41,8 +40,18 @@ de vuelo para el modo teleoperado del Crazyflie 2.0.
 
 | Botón | Acción |
 |-------|--------|
-| X (button 0) | Primer flanco → arma motores e inicia hover |
-| X (button 0) | Segundo flanco (tras >3 s en hover) → aterrizaje controlado |
+| △ Triángulo | Primera pulsación → ARMA motores |
+| △ Triángulo | Segunda pulsación → DESARMA motores |
+| ○ Círculo | Paro de emergencia — `send_stop_setpoint()` + desarmar |
+
+### Comportamiento del armado (△)
+- El firmware brushless **no gira motores hasta que se arma** — medida de
+  seguridad del hardware
+- La app manda `supervisor.send_arming_request(True)` para armar y
+  `supervisor.send_arming_request(False)` para desarmar
+- Al armar: chip naranja "ARMADO" en GUI, vibra el control
+- El firmware puede desarmarse solo si el dron se voltea o por timeout —
+  la app lo detecta y lo notifica en el log
 
 ---
 
@@ -90,38 +99,30 @@ _vx_ref = -expo(dead(raw_vx), PS4_EXPO) * PS4_MAX_VEL
 _vy_ref =  expo(dead(raw_vy), PS4_EXPO) * PS4_MAX_VEL
 ```
 
-⚠️ **Los signos de `_vx_ref`/`_vy_ref` están calibrados junto con los de
-`pc`/`rc` en el hover loop. Invertir cualquiera mueve el dron al revés.**
-
-### Conversión a ángulos de control
-```python
-scale = MAX_ANGLE / max(PS4_MAX_VEL, 0.01)
-pc = clamp(-_vx_ref * scale, -MAX_ANGLE, MAX_ANGLE)
-rc = clamp(-_vy_ref * scale, -MAX_ANGLE, MAX_ANGLE)
-cf.commander.send_setpoint(ROLL_TRIM + rc, PITCH_TRIM + pc, 0, thrust)
-```
+⚠️ **Los signos están calibrados juntos. Invertir cualquiera mueve el dron
+al revés. Si ocurre, ajustar el signo del eje correspondiente, nunca a ciegas.**
 
 ---
 
-## 7. Secuencia de Operación en Modo PS4
+## 7. Secuencia de Operación
 
 1. Conectar al Crazyflie y configurar LogConfig
 2. Calibrar barómetro (200 muestras)
-3. Esperar botón X — el bucle de espera cumple también el armado del firmware
-4. Iniciar hover dinámico (dt medido en tiempo real)
-5. Segundo flanco de X (tras >3 s en hover) → aterrizaje controlado
+3. Presionar △ para armar motores
+4. Volar con joysticks
+5. Presionar △ nuevamente para desarmar y aterrizar
+6. ○ en cualquier momento para paro de emergencia
 
 ---
 
 ## 8. Restricciones
 
-- En modo PS4 el lazo PID de posición XY **no está activo** — el operador
-  controla la dirección manualmente con los joysticks
-- El lazo PID de altitud sí permanece activo (altitude hold)
-- El warm-up de ~25 ciclos al inicio ignora el estado inicial del botón X
-  para evitar arranques accidentales
-- Si el dron va en dirección contraria al stick, ajustar `CAM_SIGN_*` (modo
-  auto) o el signo del eje correspondiente (modo PS4), nunca a ciegas
+- El dron brushless **no responde a thrust hasta estar armado**
+- El firmware puede desarmarse automáticamente por seguridad (volteo, timeout)
+- El warm-up de ~25 ciclos al inicio ignora el estado inicial de los botones
+  para evitar armados accidentales
+- Si el dron va en dirección contraria al stick, ajustar el signo del eje
+  correspondiente, nunca a ciegas
 
 ---
 
@@ -133,5 +134,5 @@ cf.commander.send_setpoint(ROLL_TRIM + rc, PITCH_TRIM + pc, 0, thrust)
 | Zona muerta con renormalización | ✅ Implementado |
 | Curva EXPO (PS4_EXPO=0.60) | ✅ Implementado |
 | Altitude hold en modo PS4 | ✅ Implementado |
-| Armado por bucle de espera botón X | ✅ Implementado |
-| Aterrizaje por segundo flanco botón X | ✅ Implementado |
+| Armado con △ (send_arming_request) | ⏳ Pendiente |
+| Paro de emergencia con ○ | ⏳ Pendiente |
