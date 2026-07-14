@@ -1,20 +1,29 @@
-# Spec: Visión Computacional — Crazyflie 2.0
-**Versión:** 1.1  
-**Estado:** Borrador  
+# Spec: Visión Computacional — Crazyflie 2.0/2.1 [DEPRECADO]
+
+> ⚠️ **MÓDULO DEPRECADO — junio 2026.** El proyecto migró de cámara cenital
+> + color tracking a **posicionamiento por Lighthouse V2** (ver SPEC.md §3-4
+> y el futuro `specs/positioning.md`, aún sin crear porque el hardware
+> Lighthouse no está configurado). Este documento se conserva como registro
+> histórico de la arquitectura anterior. **No usar como referencia para
+> nueva implementación.** Ninguna variable aquí descrita (CAM_ZOOM,
+> CAM_SIGN_X/Y, marcador rosa) debe aparecer en código nuevo.
+
+**Versión:** 1.1 (congelada)  
+**Estado:** Deprecado  
 **Autor:** Benny  
 **Última actualización:** Junio 2026
 
 ---
 
-## 1. Propósito
+## 1. Propósito (histórico)
 
-Detectar y rastrear la posición del Crazyflie 2.0 en el plano XY mediante
+Detectar y rastrear la posición del Crazyflie en el plano XY mediante
 procesamiento de video de una cámara cenital, para alimentar el lazo PID de
-posición en modo autónomo.
+posición en modo autónomo. **Reemplazado por Lighthouse V2.**
 
 ---
 
-## 2. Hardware
+## 2. Hardware (histórico)
 
 | Parámetro | Valor |
 |-----------|-------|
@@ -25,10 +34,10 @@ posición en modo autónomo.
 
 ---
 
-## 3. Pipeline de Procesamiento
+## 3. Pipeline de Procesamiento (histórico)
 
 1. Captura de frame desde la cámara vía OpenCV
-2. Aplicación de zoom digital fijo (`CAM_ZOOM`) en `_procesar_frame`
+2. Aplicación de zoom digital (`CAM_ZOOM`) en `_procesar_frame`
 3. Conversión de espacio de color para detección por rango HSV
 4. Detección del marcador rosa por color tracking
 5. Cálculo del centroide del objeto detectado
@@ -37,41 +46,31 @@ posición en modo autónomo.
 
 ---
 
-## 4. Parámetros
+## 4. Parámetros (histórico)
 
 | Parámetro | Valor | Notas |
 |-----------|-------|-------|
 | Color objetivo | Rosa | Marcador físico en el dron |
 | Método de detección | Color tracking (rango HSV) | |
-| Referencia de posición | Centro del frame | Setpoint del PID XY |
-| `CAM_ZOOM` | 48 | Valor inicial de zoom digital, ajustable desde slider en GUI |
+| `CAM_ZOOM` | 48 | Zoom digital, slider planeado pero nunca implementado |
 
 ---
 
-## 5. Lógica de Activación
+## 5. Por Qué se Reemplazó
 
-- El procesamiento de video corre **continuamente** desde que se conecta la cámara
-- El lazo PID de posición XY se activa **únicamente** cuando el algoritmo
-  detecta al dron dentro del cuadro
-- Mientras el dron no sea detectado (fase de despegue inicial), el control
-  de posición permanece inactivo
-
----
-
-## 6. Restricciones
-
-- El dron no es visible en tierra debido a la altura de instalación de la cámara
-- El procesamiento continúa activo aunque el usuario cambie de pestaña en la GUI
-- La detección depende de las condiciones de iluminación del área de vuelo
+- Dependencia de condiciones de iluminación
+- Requería calibración de zoom por sesión
+- Cobertura limitada al área bajo la cámara
+- Lighthouse V2 ofrece posicionamiento 3D más preciso y no depende de luz
+  ambiental ni de un marcador de color
 
 ---
 
-## 7. Estado de Implementación
+## 6. Estado de Implementación (histórico, al momento de deprecar)
 
 | Componente | Estado |
 |------------|--------|
-| Captura y procesamiento OpenCV | ✅ Implementado |
-| Color tracking (marcador rosa) | ✅ Implementado |
-| Zoom digital fijo (CAM_ZOOM=48) | ✅ Implementado |
-| Activación automática del PID XY | ✅ Implementado |
-| Slider de zoom ajustable en GUI | ⏳ Pendiente |
+| Captura y procesamiento OpenCV | ✅ Implementado (código legado) |
+| Color tracking (marcador rosa) | ✅ Implementado (código legado) |
+| Slider de zoom digital en GUI | ⏳ Nunca completado |
+| Activación automática del PID XY | ✅ Implementado (código legado) |
