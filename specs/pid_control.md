@@ -1,6 +1,6 @@
-# Spec: Control PID — Crazyflie 2.0
-**Versión:** 1.2  
-**Estado:** Borrador  
+# Spec: Control PID — Crazyflie 2.1 Brushless
+**Versión:** 1.3  
+**Estado:** Borrador — valores en validación  
 **Autor:** Benny  
 **Última actualización:** Junio 2026
 
@@ -16,22 +16,38 @@ y PS4). El control de posición XY opera únicamente en modo autónomo.
 
 ## 2. Control de Altitud (Eje Z)
 
-### Parámetros
-| Parámetro | Valor | Notas |
-|-----------|-------|-------|
-| KP_ALT | 3750.0 | Validado: Pm ≈ 65°, OS ≈ 20% |
-| KI_ALT | 50.0 | Anti-windup activo (I_LIMIT_ALT) |
-| KD_ALT | 5250.0 | RMSE ≈ 7.1 cm en sim_hover |
-| I_LIMIT_ALT | 5000.0 | Clamping del integrador en pid.py |
-| HOVER_THRUST | 55000 | Thrust base de hover |
-| THRUST_MIN | 20000 | Límite inferior de thrust |
-| THRUST_MAX | 60000 | Límite superior de thrust |
-| TARGET_ALTITUDE | 0.5 m | Altitud objetivo en modo autónomo |
-| BARO_GAIN | 0.89 | Corrección de sobre-lectura del barómetro (efecto Venturi) |
-| LOOP_HZ | 50 | Frecuencia del loop de control |
-| RAMP_UP_TIME | 1.0 s | Duración de la rampa de despegue |
-| RAMP_DOWN_TIME | 3.0 s | Duración de la rampa de aterrizaje |
-| HOLD_TIME | 5.0 s | Tiempo de hover en modo autónomo antes de aterrizar |
+### Parámetros — CF 2.1 Brushless (de simulación, pendientes de banco)
+
+⚠️ **Origen de los valores:** obtenidos mediante simulación MATLAB
+(`simulation/sim_crazyflie_brushless.m`) con mapeo PWM→thrust lineal
+aproximado. **Deben validarse en banco de pruebas antes de considerarse
+definitivos.**
+
+| Parámetro | CF 2.0 (validado en vuelo) | CF 2.1 BL (simulación) | Notas |
+|-----------|---------------------------|------------------------|-------|
+| KP_ALT | 3750.0 | 3885.0 | Casi sin cambio |
+| KI_ALT | 50.0 | 50.0 | Sin cambio |
+| KD_ALT | 5250.0 | 3100.0 | ⚠️ Menor: el brushless responde más rápido y KD alto amplifica ruido del barómetro |
+| I_LIMIT_ALT | 5000.0 | 5000.0 | Sin cambio |
+| HOVER_THRUST | 55000 | **~17500** | ⚠️ **CRÍTICO** — el brushless tiene ratio empuje/peso ~3.75:1; usar 55000 provocaría ascenso descontrolado |
+| THRUST_MIN | 20000 | 8000 | Ajustado al nuevo punto de operación |
+| THRUST_MAX | 60000 | 60000 | Sin cambio |
+| TARGET_ALTITUDE | 0.5 m | 0.5 m | Sin cambio |
+| BARO_GAIN | 0.89 | Por validar | Puede cambiar con el LPS22HH |
+| LOOP_HZ | 50 | 50 | Sin cambio |
+| RAMP_UP_TIME | 1.0 s | 1.0 s | Sin cambio |
+| RAMP_DOWN_TIME | 3.0 s | 3.0 s | Sin cambio |
+| HOLD_TIME | 5.0 s | 5.0 s | Sin cambio |
+
+### Resultados de simulación (CF 2.1 BL, ganancias recomendadas)
+
+| Métrica | Valor simulado | Objetivo |
+|---------|---------------|----------|
+| Margen de fase | 76.7° | > 45° ✅ |
+| Overshoot | 7.5% | < 25% ✅ |
+| Tiempo de establecimiento | ~3.5 s | < 3 s (marginal) |
+| RMSE en hover (lineal discreto) | 2.0 cm | < 10 cm ✅ |
+| RMSE en hover (no lineal 6 DOF) | 1.0 cm | < 10 cm ✅ |
 
 ### Manejo de dt
 
@@ -45,13 +61,6 @@ dt_real = t0 - t_prev
 dt_real = max(0.005, min(0.05, dt_real))
 ```
 
-### Comportamiento esperado
-| Métrica | Valor objetivo |
-|---------|---------------|
-| RMSE en hover | < 10 cm |
-| Overshoot en escalón 1 m | < 25% |
-| Tiempo de establecimiento | < 3 s |
-
 ### Anti-windup
 Implementado en `pid.py` mediante clamping del integrador:
 ```python
@@ -62,32 +71,20 @@ if self.i_limit is not None:
 
 ---
 
-## 3. Armado Obligatorio (Thrust Lock del Firmware)
+## 3. Armado Obligatorio (Brushless)
 
-**CRÍTICO — sin este paso el dron no arranca motores.**
+**CRÍTICO — el firmware brushless no gira motores sin armado explícito.**
 
-Antes de cualquier thrust > 0, el firmware requiere recibir al menos 2 segundos
-de `send_setpoint(0, 0, 0, 0)`. Este paso se ejecuta en `_autonomous_run`
-tras completar la calibración del barómetro.
-
-```python
-# Armado: 2 s de thrust=0 antes de cualquier thrust>0
-for _ in range(int(2.0 * LOOP_HZ)):
-    cf.commander.send_setpoint(0, 0, 0, 0)
-    time.sleep(1.0 / LOOP_HZ)
-```
-
-En modo PS4 el armado se cumple automáticamente por el bucle de espera
-del botón X.
+- Armar: `supervisor.send_arming_request(True)` (botón △ en PS4)
+- Desarmar: `supervisor.send_arming_request(False)`
+- El firmware puede desarmarse solo (volteo, timeout) — la app debe
+  detectarlo y notificarlo
 
 ---
 
 ## 4. Compensación de Inclinación (Tilt Compensation)
 
 **Obligatoria en TODO hover** — sin esto el dron se hunde al maniobrar.
-
-Al inclinarse, el thrust vertical efectivo se reduce. La compensación corrige
-esto antes de enviar el comando:
 
 ```python
 roll_r  = radians(roll_actual)   # de stabilizer.roll
@@ -96,19 +93,21 @@ tilt    = 1.0 / max(cos(roll_r) * cos(pitch_r), 0.5)
 thrust  = clamp(thrust * tilt, THRUST_MIN, THRUST_MAX)
 ```
 
-Requiere telemetría de `stabilizer.roll` y `stabilizer.pitch` activa
-en todo momento (ver specs/gui.md — LogConfig).
+Validada también en el modelo no lineal 6 DOF de la simulación.
 
 ---
 
 ## 5. Trim de Despegue y Aterrizaje
 
-| Parámetro | Valor | Contexto |
-|-----------|-------|---------|
-| ROLL_TRIM | -1.0 | Despegue y hover |
-| PITCH_TRIM | -0.5 | Despegue y hover |
-| ROLL_TRIM_LAND | -0.5 | Aterrizaje/freno únicamente |
-| PITCH_TRIM_LAND | -0.75 | Aterrizaje/freno únicamente |
+⚠️ Los trims son específicos de cada airframe — deben recalibrarse
+experimentalmente con el CF 2.1 Brushless.
+
+| Parámetro | CF 2.0 (referencia) | CF 2.1 BL |
+|-----------|--------------------| ----------|
+| ROLL_TRIM | -1.0 | Por calibrar |
+| PITCH_TRIM | -0.5 | Por calibrar |
+| ROLL_TRIM_LAND | -0.5 | Por calibrar |
+| PITCH_TRIM_LAND | -0.75 | Por calibrar |
 
 ---
 
@@ -118,7 +117,6 @@ Rampa de descenso suave con polinomio quíntico. **Nunca corte seco salvo
 paro de emergencia.**
 
 ```python
-# Polinomio quíntico
 def quintic(q0, qf, T, t):
     if t <= 0: return q0
     if t >= T: return qf
@@ -126,23 +124,20 @@ def quintic(q0, qf, T, t):
     return q0 + (qf - q0) * (10*τ**3 - 15*τ**4 + 6*τ**5)
 ```
 
-Fases del aterrizaje:
-1. Descenso con rampa quíntica hasta `BRAKE_THRESHOLD`
-2. Fase de freno: `BRAKE_THRUST` durante `BRAKE_DURATION` segundos
-3. Corte final si `baro_alt <= LAND_THRESHOLD`
-
-| Parámetro | Valor |
-|-----------|-------|
-| BRAKE_THRESHOLD | 0.05 m |
-| LAND_THRESHOLD | 0.02 m |
-| BRAKE_THRUST | 30000 |
-| BRAKE_DURATION | 0.20 s |
+| Parámetro | Valor | Notas |
+|-----------|-------|-------|
+| BRAKE_THRESHOLD | 0.05 m | |
+| LAND_THRESHOLD | 0.02 m | |
+| BRAKE_THRUST | 30000 | ⚠️ Recalibrar para brushless (era proporcional a HOVER_THRUST=55000) |
+| BRAKE_DURATION | 0.20 s | |
 
 ---
 
 ## 7. Control de Posición (Ejes X, Y)
 
 Activo únicamente en **modo autónomo**, cuando la cámara detecta al dron.
+
+⚠️ Ganancias heredadas del CF 2.0 — validar en banco con el brushless.
 
 | Parámetro | Valor |
 |-----------|-------|
@@ -154,17 +149,23 @@ Activo únicamente en **modo autónomo**, cuando la cámara detecta al dron.
 
 ---
 
-## 8. Estado de Implementación
+## 8. Filtro EMA del Barómetro
+
+La simulación con señal dinámica mostró diferencia marginal entre α=0.1
+(11.2 cm) y α=0.5 (12.4 cm). **Decisión: mantener α=0.5** — un alpha muy
+bajo introduce retardo que puede interactuar mal con KD en el hardware real.
+Si en banco se observa ruido excesivo, probar rango 0.3–0.4.
+
+---
+
+## 9. Estado de Implementación
 
 | Componente | Estado |
 |------------|--------|
-| Ganancias PID altitud | ✅ Implementado |
-| BARO_GAIN=0.89 | ✅ Implementado |
-| Anti-windup con I_LIMIT_ALT=5000 | ✅ Implementado |
-| dt fijo en takeoff/land | ✅ Implementado |
-| dt real medido en hover_loop | ✅ Implementado |
-| Armado obligatorio (2 s thrust=0) | ✅ Implementado |
-| Tilt compensation en hover | ✅ Implementado |
-| Aterrizaje controlado (rampa quíntica) | ✅ Implementado |
-| PID posición XY | ✅ Implementado |
-| Trim de despegue (ROLL=-1.0, PITCH=-0.5) | ✅ Implementado |
+| Ganancias PID CF 2.1 BL (KP=3885, KD=3100) | ⏳ Pendiente — validar en banco |
+| HOVER_THRUST ~17500 | ⏳ Pendiente — validar en banco |
+| Armado brushless (send_arming_request) | ⏳ Pendiente |
+| Tilt compensation | ✅ Implementado (heredado) |
+| Aterrizaje quíntico | ✅ Implementado (heredado) |
+| Anti-windup | ✅ Implementado (heredado) |
+| Trims CF 2.1 BL | ⏳ Pendiente — calibrar en vuelo |
