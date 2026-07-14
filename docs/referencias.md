@@ -100,3 +100,21 @@ Bitcraze Firmware Docs. https://www.bitcraze.io/documentation/repository/crazyfl
 | R6 | Ecuaciones de movimiento modelo no lineal |
 | R7 | app.py — comunicación cflib |
 | R8 | Cálculo de HOVER_THRUST |
+| R1, R4, R6 | simulation/sim_crazyflie_brushless.m — modelo PWM→N, inercia escalada, ecuaciones 6DOF |
+
+---
+
+## Nota Metodológica — Simulación CF 2.1 Brushless
+
+Los parámetros de inercia (Ixx, Iyy, Izz) del CF 2.1 Brushless no están
+publicados con mediciones directas al momento de esta simulación. Se usó
+un **escalado por masa** desde los valores medidos del CF 2.0 [R4]
+(factor 0.032/0.027 ≈ 1.19), lo cual es una aproximación de ingeniería
+razonable para diseño preliminar de PID, pero no reemplaza una
+identificación experimental directa del CF 2.1 Brushless.
+
+El mapeo PWM→thrust se asumió **lineal** (`T = PWM/65535 × T_max`), una
+simplificación válida para estimar el punto de operación pero que no
+captura la curva real de los ESCs BLHeli_S. Los valores de HOVER_THRUST
+y ganancias PID resultantes deben confirmarse en banco de pruebas físico
+antes de usarse en vuelo.
