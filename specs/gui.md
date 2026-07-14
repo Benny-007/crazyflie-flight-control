@@ -1,5 +1,5 @@
 # Spec: Interfaz Gráfica (GUI) — Crazyflie 2.1 Brushless
-**Versión:** 1.2  
+**Versión:** 1.3  
 **Estado:** Borrador  
 **Autor:** Benny  
 **Última actualización:** Junio 2026
@@ -19,8 +19,10 @@ de vuelo mediante una interfaz gráfica de escritorio desarrollada en Python 3.
 |----------|-----|
 | `tkinter` | Ventana principal, botones, sliders, labels, topbar |
 | `matplotlib` (backend TkAgg) | Gráficas en tiempo real embebidas en Tkinter |
-| `opencv (cv2)` | Captura y procesamiento de video |
-| `Pillow (PIL)` | Conversión de frames para despliegue en Tkinter |
+| `Pillow (PIL)` | Uso a confirmar tras retirar la pestaña de cámara |
+
+⚠️ **`opencv (cv2)` ya no es necesario** — dependía de la pestaña de cámara,
+ahora obsoleta (ver §3 y SPEC.md §3-4).
 
 ---
 
@@ -34,17 +36,15 @@ de vuelo mediante una interfaz gráfica de escritorio desarrollada en Python 3.
 - Gráficas en tiempo real (ver §5)
 - Log de eventos con hora (ver §6)
 
-### Pestaña Cámara
-- Botón de conexión/desconexión del flujo de video
-- Transmisión en vivo de la cámara cenital
-- Slider de zoom digital (valor inicial: CAM_ZOOM=48)
+### Pestaña Cámara — 🗄️ DEPRECADA
+> El proyecto migró a posicionamiento por Lighthouse V2. La pestaña de
+> cámara (conexión de video, transmisión en vivo, slider de zoom) queda
+> obsoleta. Se define una nueva sección de estado de Lighthouse cuando el
+> hardware esté configurado (ver §7).
 
 ---
 
 ## 4. Panel de Estado
-
-El panel muestra el estado del sistema en tiempo real mediante chips visuales
-y lecturas numéricas.
 
 ### Chips de Estado
 | Chip | Color | Significado |
@@ -52,18 +52,18 @@ y lecturas numéricas.
 | Conexión | Verde | Crazyflie conectado |
 | Conexión | Gris | Sin conexión |
 | ARMADO | Naranja | Motores armados |
-| Modo | — | MANUAL / ALTITUD |
-| PRECISION | — | Control de posición activo |
+| Modo | — | MANUAL / ALTITUD (submodos de PS4, ver SPEC.md §2) |
+| PRECISIÓN | — | ⏳ Pendiente redefinir — dependía de detección por cámara; su significado en el contexto de Lighthouse aún no se especifica |
 
 ### Lecturas en Tiempo Real
-| Elemento | Descripción |
-|----------|-------------|
-| Batería | Barra con % y voltaje. Rojo bajo 3.50 V → aterrizar |
-| Link | Calidad del enlace de radio en % |
-| Cronómetro | Tiempo de vuelo acumulado |
-| Roll / Pitch / Yaw | Actitud real del dron |
-| Altitud | Altitud actual y objetivo (en modo altitud) |
-| Estado supervisor | "listo para armar", "volando", "VOLCADO", "BLOQUEADO" |
+| Elemento | Descripción | Fuente (LogConfig) |
+|----------|-------------|---------------------|
+| Batería | Barra con % y voltaje. Rojo bajo 3.50 V → aterrizar | `pm.vbat` (agregar a LogConfig, ver §8) |
+| Link | Calidad del enlace de radio en % | Por definir — cflib expone `link_quality` vía callback de conexión |
+| Cronómetro | Tiempo de vuelo acumulado | Calculado en app, no requiere LogConfig |
+| Roll / Pitch / Yaw | Actitud real del dron | `stabilizer.roll`, `stabilizer.pitch`, `stabilizer.yaw` |
+| Altitud | Altitud actual y objetivo (en modo altitud) | `baro.asl` |
+| Estado supervisor | "listo para armar", "volando", "VOLCADO", "BLOQUEADO" | `supervisor.info` o equivalente (confirmar en firmware) |
 
 ---
 
@@ -74,11 +74,8 @@ Muestran los últimos 60 segundos de datos:
 | Gráfica | Variables | Propósito |
 |---------|-----------|-----------|
 | Altitud | `baro_filtered` vs `alt_setpoint` | Monitorear PID de altitud |
-| Batería | Voltaje de batería | Detectar batería baja |
+| Batería | Voltaje de batería (`pm.vbat`) | Detectar batería baja |
 | Thrust | Thrust enviado | Diagnosticar comportamiento del vuelo |
-
-- Renderizadas con `FigureCanvasTkAgg` y `FuncAnimation`
-- Actualizadas en tiempo real durante el vuelo
 
 ---
 
@@ -91,7 +88,19 @@ Muestran los últimos 60 segundos de datos:
 
 ---
 
-## 7. Topbar
+## 7. Posicionamiento (Lighthouse V2) — ⏳ Pendiente de Definir
+
+El proyecto usará dos estaciones base Lighthouse V2 para posicionamiento,
+en reemplazo de la cámara cenital. Esta sección se completará una vez
+configurado el hardware. Pendiente definir:
+
+- Indicador de estado de las estaciones base en el panel
+- Visualización de posición XYZ (¿reemplaza la pestaña de Cámara?)
+- Relación entre el chip "PRECISIÓN" y la calidad de la señal Lighthouse
+
+---
+
+## 8. Topbar
 
 | Elemento | Función |
 |----------|---------|
@@ -99,22 +108,23 @@ Muestran los últimos 60 segundos de datos:
 
 ---
 
-## 8. LogConfig
+## 9. LogConfig
 
-La telemetría se divide en dos LogConfig para respetar el límite de 26 bytes
-del protocolo CRTP:
+⚠️ **Requiere actualización** para incluir batería y estado del supervisor,
+que el panel de estado (§4) necesita mostrar.
 
-| LogConfig | Variables |
-|-----------|-----------|
-| `lc` | `baro.asl`, potencia M1, M2, M3, M4 |
-| `lc_mot` | `stabilizer.roll`, `stabilizer.pitch` |
+| LogConfig | Variables | Estado |
+|-----------|-----------|--------|
+| `lc` | `baro.asl`, potencia M1, M2, M3, M4 | ✅ Implementado |
+| `lc_mot` | `stabilizer.roll`, `stabilizer.pitch` | ✅ Implementado |
+| `lc_bat` | `pm.vbat` | ⏳ Pendiente — necesario para indicador de batería |
+| `lc_sup` | Estado del supervisor | ⏳ Pendiente — confirmar variable exacta en firmware |
 
-`stabilizer.roll` y `stabilizer.pitch` son obligatorios para la compensación
-de inclinación (tilt compensation) en el hover loop.
+Respetar el límite de 26 bytes del protocolo CRTP por bloque de LogConfig.
 
 ---
 
-## 9. Botón Salir
+## 10. Botón Salir
 
 - Disponible en la pestaña principal en todo momento
 - Al presionarlo: detiene todos los hilos activos, cierra el CSV logger,
@@ -124,20 +134,19 @@ de inclinación (tilt compensation) en el hover loop.
 
 ---
 
-## 10. Restricciones
+## 11. Restricciones
 
 ⚠️ **Bug conocido de Tkinter en este equipo:** no usar emojis de color
 (⏱ 💾 ✔ ✖ ‼ ⚠) en textos de la interfaz — provocan crash de la librería.
 Los símbolos △ ○ □ sí son seguros.
 
-- El procesamiento de video continúa activo aunque el usuario cambie de pestaña
 - La GUI corre en el hilo principal — el loop de control corre en hilo separado
 - El paro de emergencia tiene prioridad sobre cualquier otra acción
 - El botón salir no puede usarse durante el vuelo sin antes detener el dron
 
 ---
 
-## 11. Estado de Implementación
+## 12. Estado de Implementación
 
 | Componente | Estado |
 |------------|--------|
@@ -145,11 +154,12 @@ Los símbolos △ ○ □ sí son seguros.
 | Panel de estado con chips | ⏳ Pendiente |
 | Gráficas en tiempo real (altitud, batería, thrust) | ⏳ Pendiente |
 | Log de eventos con hora | ⏳ Pendiente |
-| Pestaña de cámara | ✅ Implementado |
-| Slider de zoom digital | ⏳ Pendiente |
+| Pestaña de cámara | 🗄️ Deprecada — retirar del código |
+| Slider de zoom digital | 🗄️ Deprecado — retirar del código |
 | Botón de paro de emergencia | ✅ Implementado |
 | Export CSV desde topbar | ✅ Implementado |
-| LogConfig dividido (lc + lc_mot) | ✅ Implementado |
+| LogConfig batería (`lc_bat`) | ⏳ Pendiente |
+| LogConfig supervisor (`lc_sup`) | ⏳ Pendiente |
 | Botón Salir | ⏳ Pendiente |
 | Cronómetro de vuelo | ⏳ Pendiente |
-| Indicador de batería con alerta | ⏳ Pendiente |
+| Sección de estado Lighthouse V2 | ⏳ Pendiente — hardware sin configurar |
