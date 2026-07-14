@@ -65,15 +65,26 @@ El aterrizaje estándar usa una rampa de descenso suave con polinomio quíntico.
 4. Desarmar con `supervisor.send_arming_request(False)`
 
 ### Parámetros
-| Parámetro | Valor |
-|-----------|-------|
-| BRAKE_THRESHOLD | 0.05 m |
-| LAND_THRESHOLD | 0.02 m |
-| BRAKE_THRUST | 30000 |
-| BRAKE_DURATION | 0.20 s |
-| RAMP_DOWN_TIME | 3.0 s |
-| ROLL_TRIM_LAND | -0.5 |
-| PITCH_TRIM_LAND | -0.75 |
+
+⚠️ **Todos estos valores fueron calibrados para el CF 2.0 con
+HOVER_THRUST=55000. Con el CF 2.1 Brushless (HOVER_THRUST≈17500, ver
+specs/pid_control.md v1.3), deben recalibrarse — especialmente
+BRAKE_THRUST, que era proporcional al hover anterior.**
+
+| Parámetro | CF 2.0 (referencia) | CF 2.1 BL | Estado |
+|-----------|---------------------|-----------|--------|
+| BRAKE_THRESHOLD | 0.05 m | 0.05 m | Sin cambio esperado |
+| LAND_THRESHOLD | 0.02 m | 0.02 m | Sin cambio esperado |
+| BRAKE_THRUST | 30000 | **⚠️ Por recalcular** | 30000 es ~1.7× el nuevo hover — frenaría de más o empujaría hacia arriba en vez de amortiguar la caída |
+| BRAKE_DURATION | 0.20 s | Por validar | Depende del nuevo BRAKE_THRUST |
+| RAMP_DOWN_TIME | 3.0 s | 3.0 s | Punto de partida razonable |
+| ROLL_TRIM_LAND | -0.5 | Por calibrar | Trim específico de airframe |
+| PITCH_TRIM_LAND | -0.75 | Por calibrar | Trim específico de airframe |
+
+**Regla práctica para BRAKE_THRUST en banco de pruebas:** empezar en un
+valor cercano al nuevo HOVER_THRUST (~17500) y ajustar gradualmente hacia
+arriba solo lo necesario para frenar la caída — nunca partir del valor
+heredado del CF 2.0 sin escalarlo primero.
 
 ---
 
