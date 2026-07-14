@@ -41,18 +41,22 @@ de vuelo para el modo teleoperado del Crazyflie 2.1 Brushless.
 | Botón | Acción |
 |-------|--------|
 | △ Triángulo | Primera pulsación → ARMA motores |
-| △ Triángulo | Segunda pulsación → DESARMA motores |
-| ○ Círculo | Paro de emergencia — `send_stop_setpoint()` + desarmar |
+| △ Triángulo | Segunda pulsación → inicia aterrizaje controlado (desarme automático al finalizar) || ○ Círculo | Paro de emergencia — `send_stop_setpoint()` + desarmar |
 
 ### Comportamiento del armado (△)
 - El firmware brushless **no gira motores hasta que se arma** — medida de
   seguridad del hardware
-- La app manda `supervisor.send_arming_request(True)` para armar y
-  `supervisor.send_arming_request(False)` para desarmar
+- La app manda `supervisor.send_arming_request(True)` para armar
 - Al armar: chip naranja "ARMADO" en GUI, vibra el control
 - El firmware puede desarmarse solo si el dron se voltea o por timeout —
   la app lo detecta y lo notifica en el log
 
+⚠️ **Corrección de versión anterior:** la segunda pulsación de △ NO desarma
+directamente. Desarmar en pleno vuelo cortaría motores en el aire —
+el dron caería sin control. La segunda pulsación **inicia el aterrizaje
+controlado** (rampa quíntica, ver specs/safety.md §4); el desarme
+(`send_arming_request(False)`) ocurre automáticamente **al final** del
+aterrizaje, cuando `baro_alt <= LAND_THRESHOLD`.
 ---
 
 ## 5. Parámetros de Control
@@ -110,8 +114,7 @@ al revés. Si ocurre, ajustar el signo del eje correspondiente, nunca a ciegas.*
 2. Calibrar barómetro (200 muestras)
 3. Presionar △ para armar motores
 4. Volar con joysticks
-5. Presionar △ nuevamente para desarmar y aterrizar
-6. ○ en cualquier momento para paro de emergencia
+5. Presionar △ nuevamente para iniciar aterrizaje controlado (el desarme ocurre automáticamente al completarse)6. ○ en cualquier momento para paro de emergencia
 
 ---
 
